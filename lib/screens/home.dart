@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
 
 import '../model/actireminder.dart';
 import '../constants/colors.dart';
@@ -12,13 +14,13 @@ class Home extends StatefulWidget {
 }
 
 class _HomeState extends State<Home> {
-  final todosList = ActireminderModel.todoList();
+  List<ActireminderModel> todosList = [];
   List<ActireminderModel> _foundToDo = [];
   final _todoController = TextEditingController();
 
   @override
   void initState() {
-    _foundToDo = todosList;
+    _loadTodos();
     super.initState();
   }
 
@@ -131,12 +133,14 @@ class _HomeState extends State<Home> {
   void _handleToDoChange(ActireminderModel todo) {
     setState(() {
       todo.isDone = !todo.isDone;
+      _saveTodos();
     });
   }
 
   void _deleteToDoItem(String id) {
     setState(() {
       todosList.removeWhere((item) => item.id == id);
+      _saveTodos();
     });
   }
 
@@ -146,6 +150,7 @@ class _HomeState extends State<Home> {
         id: DateTime.now().millisecondsSinceEpoch.toString(),
         todoText: toDo,
       ));
+      _saveTodos();
     });
     _todoController.clear();
   }
@@ -165,6 +170,26 @@ class _HomeState extends State<Home> {
     setState(() {
       _foundToDo = results;
     });
+  }
+
+  void _loadTodos() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    String? todosJson = prefs.getString('todosList');
+    if (todosJson != null) {
+      List<dynamic> todosMap = jsonDecode(todosJson);
+      setState(() {
+        todosList =
+            todosMap.map((item) => ActireminderModel.fromJson(item)).toList();
+        _foundToDo = todosList;
+      });
+    }
+  }
+
+  void _saveTodos() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    String todosJson =
+        jsonEncode(todosList.map((item) => item.toJson()).toList());
+    await prefs.setString('todosList', todosJson);
   }
 
   Widget searchBox() {
@@ -199,12 +224,15 @@ class _HomeState extends State<Home> {
     return AppBar(
       backgroundColor: tdBGColor,
       elevation: 0,
-      title: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-        const Icon(
-          Icons.menu,
+      title: const Text(
+        'ActiReminder',
+        style: TextStyle(
           color: tdBlack,
-          size: 30,
+          fontSize: 24,
+          fontWeight: FontWeight.bold,
         ),
+      ),
+      actions: [
         SizedBox(
           height: 40,
           width: 40,
@@ -213,7 +241,7 @@ class _HomeState extends State<Home> {
             child: Image.asset('assets/images/avatar.jpeg'),
           ),
         ),
-      ]),
+      ],
     );
   }
 }
